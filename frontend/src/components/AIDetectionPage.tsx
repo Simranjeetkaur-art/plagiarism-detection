@@ -29,10 +29,10 @@ const AIDetectionPage = () => {
                 }),
             });
 
-            if (!response.ok) throw new Error('Analysis failed');
+                if (!response.ok) throw new Error('Analysis failed');
 
-            const data = await response.json();
-            setResult(data.data);
+                const data = await response.json();
+                setResult(data);
         } catch (e: any) {
             setError(e.message);
         } finally {

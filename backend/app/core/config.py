@@ -4,8 +4,9 @@ import os
 
 
 class Settings(BaseSettings):
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@db:5432/plagiarism_db")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-key-change-in-production")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-insecure-secret-change-me")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -29,3 +30,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if settings.ENVIRONMENT.lower() == "production" and settings.SECRET_KEY in {
+    "dev-insecure-secret-change-me",
+    "your-super-secret-key-change-in-production",
+}:
+    raise ValueError("SECRET_KEY must be set to a strong unique value in production.")

@@ -50,7 +50,7 @@ User Text → GPT-3.5 Prompt → Classification JSON
 
 **Model:** Mixtral-8x7B-Instruct
 
-**Process:** Similar to OpenAI, uses open-source model
+**Process:** Similar to OpenAI, uses a locally hosted model
 
 **Advantages:**
 - Competitive accuracy

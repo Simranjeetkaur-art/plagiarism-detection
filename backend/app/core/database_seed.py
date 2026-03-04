@@ -63,25 +63,27 @@ async def seed_database():
             else:
                 print(f"Admin user already exists: {existing_admin.email}")
             
-            # Create sample users if they don't exist
-            sample_users = [
-                {"email": "user1@example.com", "password": "UserPass123!", "role": "user"},
-                {"email": "user2@example.com", "password": "UserPass123!", "role": "user"},
-                {"email": "moderator@example.com", "password": "ModPass123!", "role": "moderator"},  # Optional intermediate role
-            ]
-            
-            for user_data in sample_users:
-                existing_user = await get_user_by_email(session, user_data["email"])
-                if not existing_user:
-                    user = await create_user(
-                        session, 
-                        user_data["email"], 
-                        user_data["password"], 
-                        user_data["role"]
-                    )
-                    print(f"Created user: {user.email} with role: {user.role}")
-                else:
-                    print(f"User already exists: {existing_user.email}")
+            # Optional sample users for local demos only.
+            create_sample_users = os.getenv("CREATE_SAMPLE_USERS", "false").lower() == "true"
+            if create_sample_users:
+                sample_users = [
+                    {"email": "user1@example.com", "password": "UserPass123!", "role": "user"},
+                    {"email": "user2@example.com", "password": "UserPass123!", "role": "user"},
+                    {"email": "moderator@example.com", "password": "ModPass123!", "role": "moderator"},
+                ]
+
+                for user_data in sample_users:
+                    existing_user = await get_user_by_email(session, user_data["email"])
+                    if not existing_user:
+                        user = await create_user(
+                            session,
+                            user_data["email"],
+                            user_data["password"],
+                            user_data["role"]
+                        )
+                        print(f"Created user: {user.email} with role: {user.role}")
+                    else:
+                        print(f"User already exists: {existing_user.email}")
             
             await session.commit()  # Ensure all transactions are committed
             print("Database seeding completed!")

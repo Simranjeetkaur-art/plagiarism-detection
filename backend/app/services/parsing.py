@@ -3,17 +3,32 @@ from pdfminer.high_level import extract_text
 import docx
 import io
 import os
+import inspect
 from PIL import Image
 import pytesseract
 from pdf2image import convert_from_path
 import tempfile
 
-async def extract_text_from_file(file: UploadFile) -> str:
+async def _read_file_bytes(file) -> bytes:
+    read_method = getattr(file, "read", None)
+    if read_method is None:
+        if isinstance(file, (bytes, bytearray)):
+            return bytes(file)
+        raise ValueError("Unsupported input type for text extraction")
+
+    result = read_method()
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+async def extract_text_from_file(file, filename: str | None = None) -> str:
     """
     Extracts text from a file, supporting .txt, .docx, .pdf, and image formats (.png, .jpg, .jpeg).
     """
-    content = await file.read()
-    filename = file.filename.lower()
+    content = await _read_file_bytes(file)
+    resolved_filename = filename or getattr(file, "filename", None) or getattr(file, "name", "")
+    filename = resolved_filename.lower()
 
     if filename.endswith(".docx"):
         doc = docx.Document(io.BytesIO(content))

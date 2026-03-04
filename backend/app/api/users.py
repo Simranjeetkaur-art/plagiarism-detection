@@ -1,9 +1,10 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi_users import FastAPIUsers
 from app.api.auth import fastapi_users
 from app.models.user import User
-from app.schemas import UserRead, UserCreate, UserUpdate
-from sqlalchemy.orm import Session
+from app.schemas import UserRead
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 
 
@@ -16,10 +17,11 @@ async def get_current_user(user: User = Depends(fastapi_users.current_user())):
     return user
 
 
-@router.get("/users/{user_id}", response_model=UserRead)
+@router.get("/{user_id}", response_model=UserRead)
 async def get_user_by_id(
-    user_id: str,
+    user_id: UUID,
     current_user: User = Depends(fastapi_users.current_user()),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get user by ID (admin or self only)"""
     # Check if current user is admin or requesting own profile
@@ -28,7 +30,7 @@ async def get_user_by_id(
     
     # Fetch the actual user from database
     from sqlalchemy import select
-    result = await db.execute(select(User).filter(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     
     if not user:
@@ -39,7 +41,7 @@ async def get_user_by_id(
 @router.get("/me/dashboard")
 async def get_user_dashboard(
     current_user: User = Depends(fastapi_users.current_user()),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Get dashboard statistics for current user"""
     from app.models import Batch, Document

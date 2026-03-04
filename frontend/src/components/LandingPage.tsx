@@ -30,7 +30,7 @@ const LandingPage = () => {
         </h1>
 
         <p style={{ fontSize: '22px', color: 'var(--text-secondary)', marginBottom: '48px', maxWidth: '700px', margin: '0 auto 48px', fontWeight: 400 }}>
-          The ultimate open-source solution for plagiarism and AI-generated content detection. Fast, secure, and incredibly accurate.
+          The ultimate solution for plagiarism and AI-generated content detection. Fast, secure, and incredibly accurate.
         </p>
 
         <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
@@ -86,7 +86,7 @@ const LandingPage = () => {
             { label: 'Accuracy', value: '99.9%' },
             { label: 'Processing Time', value: '< 2s' },
             { label: 'File Types', value: '15+' },
-            { label: 'Open Source', value: '100%' }
+            { label: 'Audited', value: '100%' }
           ].map((stat, i) => (
             <div key={i}>
               <div style={{ fontSize: '40px', fontWeight: 800, marginBottom: '8px', color: 'white' }}>{stat.value}</div>

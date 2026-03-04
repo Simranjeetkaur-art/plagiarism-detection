@@ -66,6 +66,11 @@ const LoginPage = () => {
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••"
                         />
+                        <div style={{ marginTop: '8px', textAlign: 'right' }}>
+                            <Link to="/forgot-password" style={{ color: 'var(--primary)', fontSize: '13px' }}>
+                                Forgot password?
+                            </Link>
+                        </div>
                     </div>
 
                     {error && (

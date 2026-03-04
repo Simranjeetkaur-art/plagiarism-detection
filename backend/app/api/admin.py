@@ -1,15 +1,28 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update
-from app.api.auth import admin_user, fastapi_users
+from passlib.context import CryptContext
+
+from app.api.auth import admin_user
 from app.models.user import User
 from app.core.db import get_db
-from app.schemas import UserRead, UserCreate, UserUpdate
 from uuid import UUID
 from typing import List
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class AdminCreateUserRequest(BaseModel):
+    email: str
+    password: str
+    role: str = "user"
+
+
+class AdminUpdateRoleRequest(BaseModel):
+    role: str
 
 @router.get("/users", response_model=List[dict])
 async def list_users(
@@ -31,7 +44,7 @@ async def list_users(
 
 @router.post("/users", response_model=dict)
 async def create_user(
-    user_create: UserCreate,
+    user_create: AdminCreateUserRequest,
     current_user: User = Depends(admin_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -48,10 +61,24 @@ async def create_user(
     
     # Create user using FastAPI-Users manager
     try:
-        user_db = fastapi_users.get_user_db(db)
-        user_manager = fastapi_users.get_user_manager(user_db)
-        
-        user = await user_manager.create(user_create)
+        if user_create.role not in ["user", "moderator", "admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid role. Valid roles: user, moderator, admin"
+            )
+
+        user = User(
+            email=user_create.email,
+            hashed_password=pwd_context.hash(user_create.password),
+            role=user_create.role,
+            is_active=True,
+            is_superuser=(user_create.role == "admin"),
+            is_verified=True,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
         return {
             "id": str(user.id),
             "email": user.email,
@@ -69,11 +96,12 @@ async def create_user(
 @router.put("/users/{user_id}", response_model=dict)
 async def update_user_role(
     user_id: UUID,
-    role: str,
+    payload: AdminUpdateRoleRequest,
     current_user: User = Depends(admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Update user role (admin only)"""
+    role = payload.role
     if role not in ["user", "moderator", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -101,7 +129,7 @@ async def update_user_role(
     await db.execute(
         update(User)
         .where(User.id == user_id)
-        .values(role=role)
+        .values(role=role, is_superuser=(role == "admin"))
     )
     await db.commit()
     

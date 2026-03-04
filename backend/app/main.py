@@ -1,19 +1,21 @@
-import loguru
 import os
+
+import loguru
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import router as api_router
+
+from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
-from app.api.admin import router as admin_router
+from app.api.v1.routes import router as analysis_router
 from app.core.db import async_engine
 from app.models.base import Base
 
 
-app = FastAPI()
+app = FastAPI(title="Plagiarism Detection API")
 
-# CORS Middleware - Restrict origins in production
-allowed_origins = ["http://localhost:5173", "http://localhost:80"]
+# CORS: strict by default, open in development only.
+allowed_origins = ["http://localhost:5173", "http://localhost:80", "http://localhost"]
 if os.getenv("ENVIRONMENT") == "development":
     allowed_origins = ["*"]
 
@@ -24,36 +26,41 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-from app.api import routes, auth, users
-from app.api.v1 import routes as v1_routes
 
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(users.router, prefix="/api/users", tags=["users"])
-app.include_router(admin_router, prefix="/api", tags=["admin"])
-app.include_router(v1_routes.router, prefix="/api/v1", tags=["analysis"])
-app.include_router(routes.router, prefix="/api/v1", tags=["legacy"]) # Keep legacy routes for now or deprecate
+# Auth and user routers (both canonical and v1 aliases for frontend compatibility).
+app.include_router(auth_router, prefix="/api/auth")
+app.include_router(auth_router, prefix="/api/v1/auth")
+app.include_router(users_router, prefix="/api/users")
+app.include_router(users_router, prefix="/api/v1/users")
+
+# Domain routers.
+app.include_router(admin_router, prefix="/api")
+app.include_router(analysis_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     loguru.logger.info("Starting up...")
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
-    # Seed the database with initial data
+
     try:
         from app.core.database_seed import seed_database
+
         await seed_database()
-    except Exception as e:
-        loguru.logger.error(f"Database seeding failed: {e}")
+    except Exception as exc:
+        loguru.logger.error(f"Database seeding failed: {exc}")
+
 
 @app.on_event("shutdown")
-async def shutdown_event():
+async def shutdown_event() -> None:
     loguru.logger.info("Shutting down...")
+
 
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
 
 @app.get("/")
 async def root():

@@ -3,8 +3,8 @@ from botocore.client import Config
 import os
 
 class StorageService:
-    def __init__(self, storage_type="local"):
-        self.storage_type = storage_type
+    def __init__(self, storage_type=None):
+        self.storage_type = storage_type or os.getenv("STORAGE_TYPE", "local")
         if self.storage_type == "s3":
             self.s3 = boto3.client(
                 "s3",

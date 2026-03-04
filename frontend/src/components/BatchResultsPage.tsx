@@ -12,7 +12,7 @@ const BatchResultsPage = () => {
             setIsLoading(true);
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`/api/v1/batch/${batchId}/results`, {
+                const response = await fetch(`/api/v1/batches/${batchId}/results`, {
                     headers: { 'Authorization': `Bearer ${token}` },
                 });
 
@@ -46,11 +46,15 @@ const BatchResultsPage = () => {
                         {results.map((result, index) => (
                             <li key={index} className="glass card-hover" style={{ padding: '24px', borderRadius: '16px' }}>
                                 <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>
-                                    {result.document_name}
+                                    {result.filename}
                                 </h3>
-                                <p style={{ color: 'var(--text-secondary)' }}>
-                                    Similarity: {(result.similarity * 100).toFixed(1)}% compared to {result.similar_document_name}
-                                </p>
+                                {result.plagiarism_analysis?.length > 0 ? (
+                                    <p style={{ color: 'var(--text-secondary)' }}>
+                                        Top similarity: {(result.plagiarism_analysis[0].similarity * 100).toFixed(1)}% compared to {result.plagiarism_analysis[0].similar_document}
+                                    </p>
+                                ) : (
+                                    <p style={{ color: 'var(--text-secondary)' }}>No plagiarism matches found.</p>
+                                )}
                             </li>
                         ))}
                     </ul>

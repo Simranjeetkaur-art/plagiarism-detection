@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 import json
 
@@ -9,9 +9,7 @@ from app.core.db import get_db
 from app.models.user import User
 from app.api.auth import fastapi_users
 from app.services.ai_detection import AIDetectionService
-from app.services.plagiarism import PlagiarismService
-from app.core.provider_router import ProviderRouter, ProviderType
-from typing import Dict, Any
+from app.core.provider_router import ProviderType
 
 router = APIRouter()
 ai_service = AIDetectionService()
@@ -33,7 +31,7 @@ async def analyze_content(
     files: List[UploadFile] = File(default=[]),
     text: Optional[str] = Form(default=None),
     options: str = Form(default='{"provider": "local", "check_plagiarism": true, "check_ai": true}'),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(fastapi_users.current_user())
 ):
     """
@@ -52,12 +50,18 @@ async def analyze_content(
     # Create Batch
     from app.models import Batch, Document
     batch_id = uuid.uuid4()
+    analysis_type = "plagiarism"
+    if opts.check_ai and opts.check_plagiarism:
+        analysis_type = "both"
+    elif opts.check_ai:
+        analysis_type = "ai"
+
     batch = Batch(
         id=batch_id,
         user_id=user.id,
         total_docs=0,
         status="queued",
-        analysis_type="mixed",
+        analysis_type=analysis_type,
         ai_provider=opts.provider,
         ai_threshold=opts.ai_threshold
     )
@@ -92,7 +96,7 @@ async def analyze_content(
         from io import BytesIO
         file_obj = BytesIO(content)
         file_obj.name = file.filename
-        text_content = await extract_text_from_file(file_obj)
+        text_content = await extract_text_from_file(file_obj, file.filename)
         
         doc = Document(
             batch_id=batch_id,
@@ -159,7 +163,7 @@ async def detect_ai_only(
 @router.get("/batches/{batch_id}/results")
 async def get_batch_results(
     batch_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(fastapi_users.current_user())
 ):
     """
@@ -169,22 +173,29 @@ async def get_batch_results(
     from sqlalchemy import select
     from sqlalchemy.orm import aliased
 
-    batch = db.query(Batch).filter(Batch.id == batch_id, Batch.user_id == user.id).first()
+    batch_result = await db.execute(
+        select(Batch).where(Batch.id == batch_id, Batch.user_id == user.id)
+    )
+    batch = batch_result.scalar_one_or_none()
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
 
-    documents = db.query(Document).filter(Document.batch_id == batch_id).all()
+    documents_result = await db.execute(
+        select(Document).where(Document.batch_id == batch_id)
+    )
+    documents = documents_result.scalars().all()
     
     results = []
     for doc in documents:
         # Get plagiarism comparisons
         DocB = aliased(Document)
-        comparisons = db.execute(
+        comparisons_result = await db.execute(
             select(Comparison, DocB.filename.label("match_filename"))
             .join(DocB, Comparison.doc_b == DocB.id)
             .where(Comparison.doc_a == doc.id)
             .order_by(Comparison.similarity.desc())
-        ).all()
+        )
+        comparisons = comparisons_result.all()
         
         plagiarism_details = []
         for comp, match_filename in comparisons:
